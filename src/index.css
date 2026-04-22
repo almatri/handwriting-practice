@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --font-ui: "Lexend", system-ui, sans-serif;
+  --font-handwriting: "ABeeZee", "Comic Neue", sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-ui);
+  }
+}
+
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
