@@ -51,6 +51,7 @@ function WorksheetLine({
   const rowHeight = fontPx;
   const midlineTop = "50%";
   const textBottomPadding = 0;
+  const isPracticeRow = line.trim() === "";
   return (
     <div
       className="relative w-full break-inside-avoid"
@@ -64,12 +65,14 @@ function WorksheetLine({
         className="pointer-events-none absolute inset-0"
         aria-hidden
       >
-        <div className="absolute top-0 left-0 h-[1px] w-full bg-[#55555555]" />
-        <div
-          className="absolute w-full border-t border-dashed border-[#55555555]"
-          style={{ top: midlineTop }}
-        />
-        <div className="absolute bottom-0 left-0 h-[1px] w-full bg-[#55555555]" />
+        {isPracticeRow && <div className="absolute top-0 left-0 h-[1px] w-full bg-[#55555555]" />}
+        {isPracticeRow && (
+          <div
+            className="absolute w-full border-t border-dashed border-[#55555555]"
+            style={{ top: midlineTop }}
+          />
+        )}
+        {isPracticeRow && <div className="absolute bottom-0 left-0 h-[1px] w-full bg-[#55555555]" />}
       </div>
       <p
         className="absolute inset-x-0 bottom-0 px-1.5 text-[#0f172a] leading-none whitespace-nowrap"
@@ -382,7 +385,7 @@ export default function App() {
                     return (
                       <div key={i} className="w-full break-inside-avoid space-y-5">
                         <WorksheetLine
-                          line={line}
+                          line={hasSentence ? `${i + 1}. ${line}` : line}
                           fontPx={fontPx}
                           fontFamily={HANDWRITING_FONTS[handwritingFont].family}
                         />
