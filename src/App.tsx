@@ -6,10 +6,12 @@ const DEFAULT_FONT = 40;
 const MIN_SENTENCE_SPACING = 0;
 const MAX_SENTENCE_SPACING = 48;
 const DEFAULT_SENTENCE_SPACING = 32;
+const ARABIC_TEXT_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
 
 type HandwritingFontKey =
   | "poppins"
   | "eduSaHand"
+  | "notoNaskhArabic"
   | "abeezee"
   | "patrickHand"
   | "kalam";
@@ -22,6 +24,10 @@ const HANDWRITING_FONTS: Record<HandwritingFontKey, { label: string; family: str
   eduSaHand: {
     label: "Edu SA Hand",
     family: "'Edu SA Beginner', 'Patrick Hand', cursive, sans-serif",
+  },
+  notoNaskhArabic: {
+    label: "Noto Naskh Arabic",
+    family: "'Noto Naskh Arabic', serif",
   },
   abeezee: {
     label: "ABeeZee (print)",
@@ -37,14 +43,22 @@ const HANDWRITING_FONTS: Record<HandwritingFontKey, { label: string; family: str
   },
 };
 
+function isRtlText(value: string): boolean {
+  return ARABIC_TEXT_REGEX.test(value);
+}
+
 function WorksheetLine({
   line,
   fontPx,
   fontFamily,
+  hideMidline = false,
+  grayTopLine = false,
 }: {
   line: string;
   fontPx: number;
   fontFamily: string;
+  hideMidline?: boolean;
+  grayTopLine?: boolean;
 }) {
   // Tune row metrics so uppercase and lowercase letterforms align better
   // with the guide lines on "primary paper".
@@ -52,6 +66,7 @@ function WorksheetLine({
   const midlineTop = "50%";
   const textBottomPadding = 0;
   const isPracticeRow = line.trim() === "";
+  const rtl = isRtlText(line);
   return (
     <div
       className="relative w-full break-inside-avoid"
@@ -65,8 +80,13 @@ function WorksheetLine({
         className="pointer-events-none absolute inset-0"
         aria-hidden
       >
-        {isPracticeRow && <div className="absolute top-0 left-0 h-[1px] w-full bg-[#55555555]" />}
         {isPracticeRow && (
+          <div
+            className="absolute top-0 left-0 h-[1px] w-full"
+            style={{ backgroundColor: grayTopLine ? "#55555515" : "#55555555" }}
+          />
+        )}
+        {isPracticeRow && !hideMidline && (
           <div
             className="absolute w-full border-t border-dashed border-[#55555555]"
             style={{ top: midlineTop }}
@@ -76,8 +96,10 @@ function WorksheetLine({
       </div>
       <p
         className="absolute inset-x-0 bottom-0 px-1.5 text-[#0f172a] leading-none whitespace-nowrap"
+        dir={rtl ? "rtl" : "ltr"}
         style={{
           paddingBottom: textBottomPadding,
+          textAlign: rtl ? "right" : "left",
         }}
       >
         {line}
@@ -214,9 +236,10 @@ export default function App() {
                     setStudentNameOption("custom");
                     setCustomStudentName(e.target.value);
                   }}
+                  dir={isRtlText(customStudentName) ? "rtl" : "ltr"}
                   className={`min-w-0 flex-1 rounded-lg border bg-white px-3 py-2 text-slate-900 shadow-inner outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 ${
                     studentNameOption === "custom" ? "border-sky-500" : "border-slate-300"
-                  }`}
+                  } ${isRtlText(customStudentName) ? "text-right" : "text-left"}`}
                   placeholder="Custom name"
                   autoComplete="name"
                 />
@@ -230,7 +253,9 @@ export default function App() {
                 ruled row under it on the sheet for your child to practice.
               </p>
               <ul className="space-y-2" role="list">
-                {practiceLines.map((line, index) => (
+                {practiceLines.map((line, index) => {
+                  const rtl = isRtlText(line);
+                  return (
                   <li key={index} className="flex items-center gap-1.5">
                     <input
                       ref={(el) => {
@@ -238,6 +263,7 @@ export default function App() {
                       }}
                       type="text"
                       value={line}
+                      dir={rtl ? "rtl" : "ltr"}
                       onChange={(e) => updateLine(index, e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -251,7 +277,9 @@ export default function App() {
                           e.preventDefault();
                         }
                       }}
-                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                      className={`min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200 ${
+                        rtl ? "text-right" : "text-left"
+                      }`}
                       placeholder="One row on the worksheet"
                       spellCheck
                       id={`practice-sentence-${index}`}
@@ -268,7 +296,7 @@ export default function App() {
                       </span>
                     </button>
                   </li>
-                ))}
+                )})}
               </ul>
             </fieldset>
 
@@ -364,7 +392,7 @@ export default function App() {
               className="mx-auto w-[190mm] max-w-full min-h-[277mm] rounded-lg border border-slate-200 bg-white shadow-md print:w-[190mm] print:min-h-[277mm] print:rounded-none print:border-0 print:shadow-none"
             >
               <div className="box-border min-h-[277mm] w-full p-[8mm] text-left print:min-h-[277mm] print:p-[8mm]">
-                <div className="mb-4 border-b border-slate-200 pb-3 text-center print:mb-5">
+                <div className="mb-8 border-b border-slate-200 pb-5 text-center print:mb-8">
                   <h2
                     className="text-2xl font-semibold text-slate-800"
                     style={{ fontFamily: "Lexend, system-ui, sans-serif" }}
@@ -382,6 +410,7 @@ export default function App() {
                 <div className="flex w-full flex-col" style={{ rowGap: sentenceSpacingPx }}>
                   {practiceLines.map((line, i) => {
                     const hasSentence = line.trim() !== "";
+                    const isArabicSentence = isRtlText(line);
                     return (
                       <div key={i} className="w-full break-inside-avoid space-y-5">
                         <WorksheetLine
@@ -394,6 +423,8 @@ export default function App() {
                             line=""
                             fontPx={fontPx}
                             fontFamily={HANDWRITING_FONTS[handwritingFont].family}
+                            hideMidline={isArabicSentence}
+                            grayTopLine={isArabicSentence}
                           />
                         )}
                       </div>
