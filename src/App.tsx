@@ -12,6 +12,7 @@ type HandwritingFontKey =
   | "poppins"
   | "eduSaHand"
   | "notoNaskhArabic"
+  | "kgPrimaryPenmanship"
   | "abeezee"
   | "patrickHand"
   | "kalam";
@@ -28,6 +29,10 @@ const HANDWRITING_FONTS: Record<HandwritingFontKey, { label: string; family: str
   notoNaskhArabic: {
     label: "Noto Naskh Arabic",
     family: "'Noto Naskh Arabic', serif",
+  },
+  kgPrimaryPenmanship: {
+    label: "KG Primary Penmanship",
+    family: "'KG Primary Penmanship', 'KG Primary', 'Patrick Hand', cursive, sans-serif",
   },
   abeezee: {
     label: "ABeeZee (print)",
@@ -391,8 +396,8 @@ export default function App() {
               id="worksheet"
               className="mx-auto w-[190mm] max-w-full min-h-[277mm] rounded-lg border border-slate-200 bg-white shadow-md print:w-[190mm] print:min-h-[277mm] print:rounded-none print:border-0 print:shadow-none"
             >
-              <div className="box-border min-h-[277mm] w-full p-[8mm] text-left print:min-h-[277mm] print:p-[8mm]">
-                <div className="mb-8 border-b border-slate-200 pb-5 text-center print:mb-8">
+              <div className="box-border min-h-[277mm] w-full pt-[30px] pb-[30px] pl-[20px] pr-[20px] text-left print:min-h-[277mm] print:pt-[30px] print:pb-[30px] print:pl-[10px] print:pr-[10px]">
+                <div className="mb-12 border-b border-slate-200 pb-5 text-center print:mb-8 print:mb-12">
                   <h2
                     className="text-2xl font-semibold text-slate-800"
                     style={{ fontFamily: "Lexend, system-ui, sans-serif" }}
