@@ -19,6 +19,7 @@ type HandwritingFontKey =
   | "kalam";
 type PracticeLineStyle = "guided" | "single";
 type WorksheetLanguage = "english" | "arabic";
+type WorksheetMode = "multiple" | "single";
 
 const ENGLISH_FONT_KEYS: HandwritingFontKey[] = [
   "poppins",
@@ -139,7 +140,10 @@ function WorksheetLine({
 }
 
 export default function App() {
+  const [worksheetMode, setWorksheetMode] = useState<WorksheetMode>("multiple");
   const [practiceLines, setPracticeLines] = useState<string[]>([""]);
+  const [singleSentence, setSingleSentence] = useState("");
+  const [singlePracticeLineCount, setSinglePracticeLineCount] = useState(3);
   const [handwritingFont, setHandwritingFont] = useState<HandwritingFontKey>("poppins");
   const [worksheetLanguage, setWorksheetLanguage] = useState<WorksheetLanguage>("english");
   const [sentenceSpacingPx, setSentenceSpacingPx] = useState(DEFAULT_SENTENCE_SPACING);
@@ -158,6 +162,13 @@ export default function App() {
   const isArabicMode = worksheetLanguage === "arabic";
   const allowedFontKeys = worksheetLanguage === "arabic" ? ARABIC_FONT_KEYS : ENGLISH_FONT_KEYS;
   const effectiveLineStyle: PracticeLineStyle = worksheetLanguage === "arabic" ? "single" : "guided";
+  const previewRows =
+    worksheetMode === "single"
+      ? [{ sentence: singleSentence, practiceCount: Math.max(0, singlePracticeLineCount) }]
+      : practiceLines.map((sentence) => ({
+          sentence,
+          practiceCount: sentence.trim() === "" ? 0 : 1,
+        }));
 
   const printWorksheet = useCallback(() => {
     window.print();
@@ -264,61 +275,128 @@ export default function App() {
               </fieldset>
             </div>
 
-            <fieldset>
-              <legend className="mb-1.5 text-sm font-medium text-slate-700">
-                Practice sentences
-              </legend>
-              <p className="mb-2 text-xs text-slate-500">
-                Press Enter to add another line. Use the button to remove a line. Each line with text gets a blank
-                ruled row under it on the sheet for your child to practice.
-              </p>
-              <ul className="space-y-2" role="list">
-                {practiceLines.map((line, index) => {
-                  const rtl = worksheetLanguage === "arabic" || isRtlText(line);
-                  return (
-                  <li key={index} className="flex items-center gap-1.5">
-                    <input
-                      ref={(el) => {
-                        lineInputRefs.current[index] = el;
-                      }}
-                      type="text"
-                      value={line}
-                      dir={rtl ? "rtl" : "ltr"}
-                      onChange={(e) => updateLine(index, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          insertLineAfter(index);
-                        }
-                      }}
-                      onPaste={(e) => {
-                        const pastedText = e.clipboardData.getData("text");
-                        if (pasteLinesAt(index, pastedText)) {
-                          e.preventDefault();
-                        }
-                      }}
-                      className={`min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200 ${
-                        rtl ? "text-right" : "text-left"
-                      }`}
-                      placeholder="One row on the worksheet"
-                      spellCheck
-                      id={`practice-sentence-${index}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeLine(index)}
-                      className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose-400"
-                      title="Remove line"
-                      aria-label="Remove this line"
-                    >
-                      <span className="text-lg font-light leading-none" aria-hidden>
-                        ×
-                      </span>
-                    </button>
-                  </li>
-                )})}
-              </ul>
-            </fieldset>
+            <div>
+              <fieldset>
+                <legend className="mb-1.5 text-sm font-medium text-slate-700">Worksheet mode</legend>
+                <p className="mb-2 text-xs text-slate-500">
+                  To practice a single sentence, select "Single". To practice multiple sentences, select "Multiple".
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWorksheetMode("single")}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400 ${
+                      worksheetMode === "single"
+                        ? "border-sky-600 bg-sky-600 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    Single
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorksheetMode("multiple")}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400 ${
+                      worksheetMode === "multiple"
+                        ? "border-sky-600 bg-sky-600 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    Multiple
+                  </button>
+                </div>
+              </fieldset>
+            </div>
+
+            {worksheetMode === "multiple" ? (
+              <fieldset>
+                <legend className="mb-1.5 text-sm font-medium text-slate-700">
+                  Practice sentences
+                </legend>
+                <p className="mb-2 text-xs text-slate-500">
+                  Press Enter to add another line.
+                </p>
+                <ul className="space-y-2" role="list">
+                  {practiceLines.map((line, index) => {
+                    const rtl = worksheetLanguage === "arabic" || isRtlText(line);
+                    return (
+                    <li key={index} className="flex items-center gap-1.5">
+                      <input
+                        ref={(el) => {
+                          lineInputRefs.current[index] = el;
+                        }}
+                        type="text"
+                        value={line}
+                        dir={rtl ? "rtl" : "ltr"}
+                        onChange={(e) => updateLine(index, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            insertLineAfter(index);
+                          }
+                        }}
+                        onPaste={(e) => {
+                          const pastedText = e.clipboardData.getData("text");
+                          if (pasteLinesAt(index, pastedText)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        className={`min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200 ${
+                          rtl ? "text-right" : "text-left"
+                        }`}
+                        placeholder="One row on the worksheet"
+                        spellCheck
+                        id={`practice-sentence-${index}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeLine(index)}
+                        className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose-400"
+                        title="Remove line"
+                        aria-label="Remove this line"
+                      >
+                        <span className="text-lg font-light leading-none" aria-hidden>
+                          ×
+                        </span>
+                      </button>
+                    </li>
+                  )})}
+                </ul>
+              </fieldset>
+            ) : (
+              <fieldset className="space-y-3">
+                <legend className="mb-1.5 text-sm font-medium text-slate-700">Practice sentence</legend>
+                <input
+                  type="text"
+                  value={singleSentence}
+                  dir={isArabicMode || isRtlText(singleSentence) ? "rtl" : "ltr"}
+                  onChange={(e) => setSingleSentence(e.target.value)}
+                  className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200 ${
+                    isArabicMode || isRtlText(singleSentence) ? "text-right" : "text-left"
+                  }`}
+                  placeholder="Type one sentence"
+                  spellCheck
+                />
+
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label htmlFor="single-practice-lines" className="text-sm font-medium text-slate-700">
+                      Number of practice lines
+                    </label>
+                    <span className="text-sm tabular-nums text-slate-500">{singlePracticeLineCount}</span>
+                  </div>
+                  <input
+                    id="single-practice-lines"
+                    type="range"
+                    min={1}
+                    max={10}
+                    value={singlePracticeLineCount}
+                    onChange={(e) => setSinglePracticeLineCount(Number(e.target.value))}
+                    className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-sky-600"
+                  />
+                </div>
+              </fieldset>
+            )}
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">
@@ -506,31 +584,40 @@ export default function App() {
                 </div>
 
                 <div className="mt-10 flex w-full flex-col" style={{ rowGap: sentenceSpacingPx }}>
-                  {practiceLines.map((line, i) => {
+                  {previewRows.map((row, i) => {
+                    const line = row.sentence;
                     const hasSentence = line.trim() !== "";
                     const isArabicSentence = isRtlText(line);
                     return (
-                      <div key={i} className="w-full break-inside-avoid space-y-6">
+                      <div
+                        key={i}
+                        className="w-full break-inside-avoid"
+                        style={{ display: "flex", flexDirection: "column", rowGap: worksheetMode === "single" ? sentenceSpacingPx : 24 }}
+                      >
                         <WorksheetLine
                           line={
                             hasSentence
-                              ? `${isArabicMode ? (i + 1).toLocaleString("ar-EG") : i + 1}. ${line}`
+                              ? worksheetMode === "multiple"
+                                ? `${isArabicMode ? (i + 1).toLocaleString("ar-EG") : i + 1}. ${line}`
+                                : line
                               : line
                           }
                           fontPx={fontPx}
                           fontFamily={HANDWRITING_FONTS[handwritingFont].family}
                           lineStyle={effectiveLineStyle}
                         />
-                        {hasSentence && (
-                          <WorksheetLine
-                            line=""
-                            fontPx={fontPx}
-                            fontFamily={HANDWRITING_FONTS[handwritingFont].family}
-                            hideMidline={isArabicSentence}
-                            grayTopLine={isArabicSentence}
-                            lineStyle={effectiveLineStyle}
-                          />
-                        )}
+                        {hasSentence &&
+                          Array.from({ length: row.practiceCount }).map((_, practiceIdx) => (
+                            <WorksheetLine
+                              key={`${i}-practice-${practiceIdx}`}
+                              line=""
+                              fontPx={fontPx}
+                              fontFamily={HANDWRITING_FONTS[handwritingFont].family}
+                              hideMidline={isArabicSentence}
+                              grayTopLine={isArabicSentence}
+                              lineStyle={effectiveLineStyle}
+                            />
+                          ))}
                       </div>
                     );
                   })}
