@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 const MIN_FONT = 12;
 const MAX_FONT = 70;
@@ -13,6 +13,10 @@ type HandwritingFontKey =
   | "eduSaHand"
   | "systemArabic"
   | "notoNaskhArabic"
+  | "arabicEducational"
+  | "amiri"
+  | "arabicRuqaa"
+  | "arabicPlayful"
   | "kgPrimaryPenmanship"
   | "abeezee"
   | "patrickHand"
@@ -29,7 +33,14 @@ const ENGLISH_FONT_KEYS: HandwritingFontKey[] = [
   "patrickHand",
   "kalam",
 ];
-const ARABIC_FONT_KEYS: HandwritingFontKey[] = ["systemArabic", "notoNaskhArabic"];
+const ARABIC_FONT_KEYS: HandwritingFontKey[] = [
+  "arabicEducational",
+  "amiri",
+  "arabicRuqaa",
+  "arabicPlayful",
+  "notoNaskhArabic",
+  "systemArabic",
+];
 
 const HANDWRITING_FONTS: Record<HandwritingFontKey, { label: string; family: string }> = {
   poppins: {
@@ -47,6 +58,23 @@ const HANDWRITING_FONTS: Record<HandwritingFontKey, { label: string; family: str
   notoNaskhArabic: {
     label: "Noto Naskh Arabic",
     family: "'Noto Naskh Arabic', 'Geeza Pro', 'Tahoma', serif",
+  },
+  arabicEducational: {
+    label: "نسخ تعليمي — Simplified / Droid Naskh",
+    family:
+      "'Simplified Arabic', 'Droid Arabic Naskh', 'Noto Naskh Arabic', 'Geeza Pro', 'Tahoma', serif",
+  },
+  amiri: {
+    label: "الأميري — Amiri",
+    family: "'Amiri', 'Traditional Arabic', 'Geeza Pro', 'Times New Roman', serif",
+  },
+  arabicRuqaa: {
+    label: "رقعة — Traditional Arabic",
+    family: "'Traditional Arabic', 'Aref Ruqaa', 'Segoe UI', 'Tahoma', sans-serif",
+  },
+  arabicPlayful: {
+    label: "أطفال وقصص — Lalezar / Rakkas",
+    family: "'Lalezar', 'Rakkas', 'Comic Sans MS', 'Tahoma', cursive, sans-serif",
   },
   kgPrimaryPenmanship: {
     label: "KG Primary Penmanship",
@@ -68,6 +96,21 @@ const HANDWRITING_FONTS: Record<HandwritingFontKey, { label: string; family: str
 
 function isRtlText(value: string): boolean {
   return ARABIC_TEXT_REGEX.test(value);
+}
+
+/** Render **bold** segments in worksheet text (markers are hidden on the sheet). */
+function renderLineWithBold(text: string): ReactNode {
+  if (!text.includes("**")) return text;
+  const parts = text.split("**");
+  return parts.map((part, i) =>
+    i % 2 === 1 ? (
+      <strong key={i} style={{ fontWeight: 700 }}>
+        {part}
+      </strong>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
 }
 
 function WorksheetLine({
@@ -133,7 +176,7 @@ function WorksheetLine({
           textAlign: rtl ? "right" : "left",
         }}
       >
-        {line}
+        {renderLineWithBold(line)}
       </p>
     </div>
   );
@@ -261,7 +304,7 @@ export default function App() {
                     type="button"
                     onClick={() => {
                       setWorksheetLanguage("arabic");
-                      setHandwritingFont("notoNaskhArabic");
+                      setHandwritingFont("arabicEducational");
                     }}
                     className={`rounded-lg border px-3 py-2 text-sm font-medium transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-400 ${
                       worksheetLanguage === "arabic"
@@ -314,7 +357,10 @@ export default function App() {
                   Practice sentences
                 </legend>
                 <p className="mb-2 text-xs text-slate-500">
-                  Press Enter to add another line.
+                  Press Enter to add another line.{" "}
+                  {isArabicMode
+                    ? "لتغليظ كلمة: ضعها بين **نجمتين**، مثل: أنا **أحب** المدرسة."
+                    : "Bold a word: wrap it in **double asterisks**, e.g. I **love** school."}
                 </p>
                 <ul className="space-y-2" role="list">
                   {practiceLines.map((line, index) => {
@@ -366,6 +412,11 @@ export default function App() {
             ) : (
               <fieldset className="space-y-3">
                 <legend className="mb-1.5 text-sm font-medium text-slate-700">Practice sentence</legend>
+                <p className="mb-2 text-xs text-slate-500">
+                  {isArabicMode
+                    ? "لتغليظ كلمة: ضعها بين **نجمتين**، مثل: أنا **أحب** المدرسة."
+                    : "Bold a word: wrap it in **double asterisks**, e.g. I **love** school."}
+                </p>
                 <input
                   type="text"
                   value={singleSentence}
