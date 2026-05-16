@@ -2,6 +2,8 @@
 
 A browser app for creating printable handwriting worksheets for kids. Type practice sentences, tune the layout, preview the sheet live, then print or save as PDF.
 
+![Handwriting practice worksheet app with controls and live preview](example.png)
+
 ## Features
 
 - **English and Arabic** — Switch language for labels, fonts, and text direction (RTL for Arabic).
