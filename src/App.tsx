@@ -1,13 +1,21 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
+  AI_PROVIDERS,
+  DEFAULT_SENTENCE_COUNT,
+  MAX_SENTENCE_COUNT,
+  apiKeyEnvHint,
   generatePracticeSentences,
-  getGeminiApiKey,
-  setGeminiApiKey as persistGeminiApiKey,
-} from "./gemini";
+  getApiKey,
+  hasEnvApiKey,
+  parseTopicsInput,
+  setApiKey,
+  type AiProvider,
+  type GenerationGrade,
+} from "./ai";
 
 const MIN_FONT = 12;
 const MAX_FONT = 70;
-const DEFAULT_FONT = 40;
+const DEFAULT_FONT = 22;
 const MIN_SENTENCE_SPACING = 0;
 const MAX_SENTENCE_SPACING = 100;
 const DEFAULT_SENTENCE_SPACING = 32;
@@ -195,10 +203,15 @@ export default function App() {
   const [handwritingFont, setHandwritingFont] = useState<HandwritingFontKey>("poppins");
   const [worksheetLanguage, setWorksheetLanguage] = useState<WorksheetLanguage>("english");
   const [sentenceSpacingPx, setSentenceSpacingPx] = useState(DEFAULT_SENTENCE_SPACING);
-  const [geminiApiKey, setGeminiApiKeyState] = useState(getGeminiApiKey);
+  const [aiProvider, setAiProvider] = useState<AiProvider>("gemini");
+  const [aiApiKey, setAiApiKey] = useState(() => getApiKey("gemini"));
   const [generatingSentences, setGeneratingSentences] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  const hasEnvGeminiKey = Boolean(import.meta.env.VITE_GEMINI_API_KEY?.trim());
+  const [genGrade, setGenGrade] = useState<GenerationGrade>(2);
+  const [genTopicsText, setGenTopicsText] = useState("");
+  const [genSentenceCount, setGenSentenceCount] = useState(DEFAULT_SENTENCE_COUNT);
+  const activeProviderMeta = AI_PROVIDERS.find((p) => p.id === aiProvider)!;
+  const hasEnvKeyForProvider = hasEnvApiKey(aiProvider);
   const lineInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const pendingLineFocus = useRef<number | null>(null);
 
@@ -273,19 +286,34 @@ export default function App() {
     []
   );
 
+  const selectAiProvider = useCallback(
+    (next: AiProvider) => {
+      if (next === aiProvider) return;
+      setApiKey(aiProvider, aiApiKey);
+      setAiProvider(next);
+      setAiApiKey(getApiKey(next));
+      setGenerateError(null);
+    },
+    [aiProvider, aiApiKey],
+  );
+
   const handleGenerateSentences = useCallback(async () => {
-    const key = geminiApiKey.trim();
+    const key = aiApiKey.trim();
     if (!key) {
-      setGenerateError(
-        "Add your Gemini API key below, or set VITE_GEMINI_API_KEY in .env.local and restart the dev server.",
-      );
+      setGenerateError(apiKeyEnvHint(aiProvider));
       return;
     }
 
     setGeneratingSentences(true);
     setGenerateError(null);
     try {
-      const sentences = await generatePracticeSentences(key, worksheetLanguage);
+      const topics = parseTopicsInput(genTopicsText);
+      const sentences = await generatePracticeSentences(aiProvider, key, {
+        language: worksheetLanguage,
+        grade: genGrade,
+        sentenceCount: genSentenceCount,
+        topics: topics.length > 0 ? topics : undefined,
+      });
       pendingLineFocus.current = null;
       setPracticeLines(sentences);
     } catch (err) {
@@ -293,7 +321,7 @@ export default function App() {
     } finally {
       setGeneratingSentences(false);
     }
-  }, [geminiApiKey, worksheetLanguage]);
+  }, [aiApiKey, aiProvider, worksheetLanguage, genGrade, genTopicsText, genSentenceCount]);
 
   return (
     <div className="min-h-dvh bg-slate-200 text-slate-900 print:bg-white">
@@ -394,21 +422,110 @@ export default function App() {
                     : "Bold a word: wrap it in **double asterisks**, e.g. I **love** school."}
                 </p>
 
-                {!hasEnvGeminiKey && (
-                  <div className="mb-3">
-                    <label htmlFor="gemini-api-key" className="mb-1 block text-xs font-medium text-slate-600">
-                      Gemini API key
+                <div className="mb-3 space-y-3 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
+                  <fieldset>
+                    <legend className="mb-1.5 text-xs font-medium text-slate-700">AI provider</legend>
+                    <div className="grid grid-cols-2 gap-2" role="group" aria-label="AI provider">
+                      {AI_PROVIDERS.map((provider) => (
+                        <button
+                          key={provider.id}
+                          type="button"
+                          onClick={() => selectAiProvider(provider.id)}
+                          className={`rounded-lg border px-2 py-1.5 text-sm font-medium transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 ${
+                            aiProvider === provider.id
+                              ? "border-violet-600 bg-violet-600 text-white"
+                              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {provider.label}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend className="mb-1.5 text-xs font-medium text-slate-700">Grade</legend>
+                    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Grade level">
+                      {([1, 2, 3] as const).map((grade) => (
+                        <button
+                          key={grade}
+                          type="button"
+                          onClick={() => setGenGrade(grade)}
+                          className={`rounded-lg border px-2 py-1.5 text-sm font-medium transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 ${
+                            genGrade === grade
+                              ? "border-violet-600 bg-violet-600 text-white"
+                              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {grade}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <div>
+                    <label htmlFor="gen-topics" className="mb-1 block text-xs font-medium text-slate-700">
+                      Topics <span className="font-normal text-slate-500">(optional)</span>
                     </label>
                     <input
-                      id="gemini-api-key"
-                      type="password"
-                      value={geminiApiKey}
+                      id="gen-topics"
+                      type="text"
+                      value={genTopicsText}
                       onChange={(e) => {
-                        setGeminiApiKeyState(e.target.value);
+                        setGenTopicsText(e.target.value);
                         setGenerateError(null);
                       }}
-                      onBlur={() => persistGeminiApiKey(geminiApiKey)}
-                      placeholder="Paste key from Google AI Studio"
+                      placeholder={isArabicMode ? "مثال: الشتاء، الحيوانات" : "e.g. winter, farm animals"}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      {isArabicMode
+                        ? "افصل المواضيع بفاصلة. اترك الحقل فارغًا لموضوع عشوائي."
+                        : "Comma-separated. Leave empty for a surprise theme."}
+                    </p>
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label htmlFor="gen-sentence-count" className="text-xs font-medium text-slate-700">
+                        Number of sentences
+                      </label>
+                      <span className="text-xs tabular-nums text-slate-500">{genSentenceCount}</span>
+                    </div>
+                    <input
+                      id="gen-sentence-count"
+                      type="range"
+                      min={1}
+                      max={MAX_SENTENCE_COUNT}
+                      value={genSentenceCount}
+                      onChange={(e) => setGenSentenceCount(Number(e.target.value))}
+                      className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-violet-600"
+                    />
+                    {genSentenceCount > 7 && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        {isArabicMode
+                          ? "قد يبدو الورقة مزدحمًا عند الطباعة."
+                          : "The worksheet may feel crowded when printing."}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {!hasEnvKeyForProvider && (
+                  <div className="mb-3">
+                    <label htmlFor="ai-api-key" className="mb-1 block text-xs font-medium text-slate-600">
+                      {activeProviderMeta.label} API key
+                    </label>
+                    <input
+                      id="ai-api-key"
+                      type="password"
+                      value={aiApiKey}
+                      onChange={(e) => {
+                        setAiApiKey(e.target.value);
+                        setGenerateError(null);
+                      }}
+                      onBlur={() => setApiKey(aiProvider, aiApiKey)}
+                      placeholder={activeProviderMeta.keyPlaceholder}
                       autoComplete="off"
                       className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                     />
@@ -419,10 +536,12 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleGenerateSentences}
-                    disabled={generatingSentences || !geminiApiKey.trim()}
+                    disabled={generatingSentences || !aiApiKey.trim()}
                     className="inline-flex w-full min-h-10 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-800 transition hover:border-violet-300 hover:bg-violet-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {generatingSentences ? "Generating…" : "Generate 5 sentences with Gemini"}
+                    {generatingSentences
+                      ? "Generating…"
+                      : `Generate ${genSentenceCount} sentence${genSentenceCount === 1 ? "" : "s"} with ${activeProviderMeta.label}`}
                   </button>
                   {generateError && (
                     <p className="text-xs text-rose-600" role="alert">
