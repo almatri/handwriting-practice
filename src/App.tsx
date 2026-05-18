@@ -1,4 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  generatePracticeSentences,
+  getGeminiApiKey,
+  setGeminiApiKey as persistGeminiApiKey,
+} from "./gemini";
 
 const MIN_FONT = 12;
 const MAX_FONT = 70;
@@ -190,6 +195,10 @@ export default function App() {
   const [handwritingFont, setHandwritingFont] = useState<HandwritingFontKey>("poppins");
   const [worksheetLanguage, setWorksheetLanguage] = useState<WorksheetLanguage>("english");
   const [sentenceSpacingPx, setSentenceSpacingPx] = useState(DEFAULT_SENTENCE_SPACING);
+  const [geminiApiKey, setGeminiApiKeyState] = useState(getGeminiApiKey);
+  const [generatingSentences, setGeneratingSentences] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const hasEnvGeminiKey = Boolean(import.meta.env.VITE_GEMINI_API_KEY?.trim());
   const lineInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const pendingLineFocus = useRef<number | null>(null);
 
@@ -263,6 +272,28 @@ export default function App() {
     },
     []
   );
+
+  const handleGenerateSentences = useCallback(async () => {
+    const key = geminiApiKey.trim();
+    if (!key) {
+      setGenerateError(
+        "Add your Gemini API key below, or set VITE_GEMINI_API_KEY in .env.local and restart the dev server.",
+      );
+      return;
+    }
+
+    setGeneratingSentences(true);
+    setGenerateError(null);
+    try {
+      const sentences = await generatePracticeSentences(key, worksheetLanguage);
+      pendingLineFocus.current = null;
+      setPracticeLines(sentences);
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : "Failed to generate sentences");
+    } finally {
+      setGeneratingSentences(false);
+    }
+  }, [geminiApiKey, worksheetLanguage]);
 
   return (
     <div className="min-h-dvh bg-slate-200 text-slate-900 print:bg-white">
@@ -362,6 +393,44 @@ export default function App() {
                     ? "لتغليظ كلمة: ضعها بين **نجمتين**، مثل: أنا **أحب** المدرسة."
                     : "Bold a word: wrap it in **double asterisks**, e.g. I **love** school."}
                 </p>
+
+                {!hasEnvGeminiKey && (
+                  <div className="mb-3">
+                    <label htmlFor="gemini-api-key" className="mb-1 block text-xs font-medium text-slate-600">
+                      Gemini API key
+                    </label>
+                    <input
+                      id="gemini-api-key"
+                      type="password"
+                      value={geminiApiKey}
+                      onChange={(e) => {
+                        setGeminiApiKeyState(e.target.value);
+                        setGenerateError(null);
+                      }}
+                      onBlur={() => persistGeminiApiKey(geminiApiKey)}
+                      placeholder="Paste key from Google AI Studio"
+                      autoComplete="off"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                )}
+
+                <div className="mb-3 space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={handleGenerateSentences}
+                    disabled={generatingSentences || !geminiApiKey.trim()}
+                    className="inline-flex w-full min-h-10 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-800 transition hover:border-violet-300 hover:bg-violet-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {generatingSentences ? "Generating…" : "Generate 5 sentences with Gemini"}
+                  </button>
+                  {generateError && (
+                    <p className="text-xs text-rose-600" role="alert">
+                      {generateError}
+                    </p>
+                  )}
+                </div>
+
                 <ul className="space-y-2" role="list">
                   {practiceLines.map((line, index) => {
                     const rtl = worksheetLanguage === "arabic" || isRtlText(line);
