@@ -11,7 +11,6 @@ import {
   getStoredModel,
   hasEnvApiKey,
   parseTopicsInput,
-  setApiKey,
   setStoredModel,
   type AiProvider,
   type FreeModelOption,
@@ -223,6 +222,9 @@ export default function App() {
   const [genTopicsText, setGenTopicsText] = useState("");
   const [genBoldTarget, setGenBoldTarget] = useState("");
   const [genSentenceCount, setGenSentenceCount] = useState(DEFAULT_SENTENCE_COUNT);
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(true);
+  const enabledAiProviders = AI_PROVIDERS.filter((provider) => hasEnvApiKey(provider.id));
+  const hasAnyEnabledAiProvider = enabledAiProviders.length > 0;
   const activeProviderMeta = AI_PROVIDERS.find((p) => p.id === aiProvider)!;
   const hasEnvKeyForProvider = hasEnvApiKey(aiProvider);
   const modelsForProvider = (provider: AiProvider): FreeModelOption[] =>
@@ -243,6 +245,14 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (hasEnvKeyForProvider || enabledAiProviders.length === 0) return;
+    const nextProvider = enabledAiProviders[0]!.id;
+    setAiProvider(nextProvider);
+    setAiApiKey(getApiKey(nextProvider));
+  }, [enabledAiProviders, hasEnvKeyForProvider]);
+
   const lineInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const pendingLineFocus = useRef<number | null>(null);
 
@@ -320,12 +330,11 @@ export default function App() {
   const selectAiProvider = useCallback(
     (next: AiProvider) => {
       if (next === aiProvider) return;
-      setApiKey(aiProvider, aiApiKey);
       setAiProvider(next);
       setAiApiKey(getApiKey(next));
       setGenerateError(null);
     },
-    [aiProvider, aiApiKey],
+    [aiProvider],
   );
 
   const selectModel = useCallback((provider: AiProvider, modelId: string) => {
@@ -454,187 +463,200 @@ export default function App() {
               </fieldset>
             </div>
 
-            <div className="space-y-3 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
-              <fieldset>
-                <legend className="mb-1.5 text-xs font-medium text-slate-700">AI provider</legend>
-                <div className="grid grid-cols-2 gap-2" role="group" aria-label="AI provider">
-                  {AI_PROVIDERS.map((provider) => (
-                    <button
-                      key={provider.id}
-                      type="button"
-                      onClick={() => selectAiProvider(provider.id)}
-                      className={`rounded-lg border px-2 py-1.5 text-sm font-medium transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 ${
-                        aiProvider === provider.id
-                          ? "border-violet-600 bg-violet-600 text-white"
-                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      {provider.label}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
+            <section className="rounded-lg border border-violet-100 bg-violet-50/40">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!hasAnyEnabledAiProvider) return;
+                  setIsAiPanelOpen((prev) => !prev);
+                }}
+                aria-expanded={isAiPanelOpen}
+                aria-disabled={!hasAnyEnabledAiProvider}
+                disabled={!hasAnyEnabledAiProvider}
+                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-3 text-left transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 ${
+                  hasAnyEnabledAiProvider
+                    ? "hover:bg-violet-50/70"
+                    : "cursor-not-allowed opacity-60"
+                }`}
+              >
+                <span className="text-sm font-medium text-slate-700">AI Content Generator</span>
+                <span className="text-sm text-slate-500" aria-hidden>
+                  {isAiPanelOpen ? "▾" : "▸"}
+                </span>
+              </button>
 
-              <div>
-                <label
-                  htmlFor={`ai-model-${aiProvider}`}
-                  className="mb-1 block text-xs font-medium text-slate-700"
-                >
-                  {activeProviderMeta.label} model{" "}
-                  <span className="font-normal text-slate-500">(free)</span>
-                </label>
-                <select
-                  id={`ai-model-${aiProvider}`}
-                  value={modelByProvider[aiProvider]}
-                  onChange={(e) => selectModel(aiProvider, e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
-                >
-                  {modelsForProvider(aiProvider).map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <fieldset>
-                <legend className="mb-1.5 text-xs font-medium text-slate-700">Grade</legend>
-                <div className="grid grid-cols-3 gap-2" role="group" aria-label="Grade level">
-                  {([1, 2, 3] as const).map((grade) => (
-                    <button
-                      key={grade}
-                      type="button"
-                      onClick={() => setGenGrade(grade)}
-                      className={`rounded-lg border px-2 py-1.5 text-sm font-medium transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 ${
-                        genGrade === grade
-                          ? "border-violet-600 bg-violet-600 text-white"
-                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      {grade}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-
-              <div>
-                <label htmlFor="gen-topics" className="mb-1 block text-xs font-medium text-slate-700">
-                  Topics <span className="font-normal text-slate-500">(optional)</span>
-                </label>
-                <textarea
-                  id="gen-topics"
-                  value={genTopicsText}
-                  onChange={(e) => {
-                    setGenTopicsText(e.target.value);
-                    setGenerateError(null);
-                  }}
-                  placeholder={
-                    isArabicMode
-                      ? "مثال:\nالشتاء\nالحيوانات"
-                      : "e.g.\nwinter\nfarm animals"
-                  }
-                  rows={4}
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  {isArabicMode
-                    ? "ضع كل موضوع في سطر، أو افصلها بفواصل. اترك الحقل فارغًا لموضوع عشوائي."
-                    : "Enter one topic per line, or separate them with commas. Leave it empty for a surprise theme."}
+              {!hasAnyEnabledAiProvider && (
+                <p className="border-t border-violet-100 px-3 py-3 text-xs text-slate-500">
+                  Add API keys to enable this functionality.
                 </p>
-              </div>
+              )}
 
-              <div>
-                <label htmlFor="gen-bold-target" className="mb-1 block text-xs font-medium text-slate-700">
-                  What to bold <span className="font-normal text-slate-500">(optional)</span>
-                </label>
-                <input
-                  id="gen-bold-target"
-                  type="text"
-                  value={genBoldTarget}
-                  onChange={(e) => {
-                    setGenBoldTarget(e.target.value);
-                    setGenerateError(null);
-                  }}
-                  placeholder={
-                    isArabicMode
-                      ? "مثل: كلمات بصرية، كلمات فيها حرف س"
-                      : "e.g. sight words, words with the letter sh"
-                  }
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  {isArabicMode
-                    ? "إذا تركته فارغًا، فلن يتم تغليظ أي كلمة."
-                    : "If left empty, nothing will be bold."}
-                </p>
-              </div>
+              {hasAnyEnabledAiProvider && isAiPanelOpen && (
+                <div className="space-y-3 border-t border-violet-100 px-3 py-3">
+                  <fieldset>
+                    <legend className="mb-1.5 text-xs font-medium text-slate-700">AI provider</legend>
+                    <div className="grid grid-cols-2 gap-2" role="group" aria-label="AI provider">
+                      {AI_PROVIDERS.map((provider) => (
+                        <button
+                          key={provider.id}
+                          type="button"
+                          onClick={() => selectAiProvider(provider.id)}
+                          disabled={!hasEnvApiKey(provider.id)}
+                          className={`rounded-lg border px-2 py-1.5 text-sm font-medium transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 ${
+                            aiProvider === provider.id && hasEnvApiKey(provider.id)
+                              ? "border-violet-600 bg-violet-600 text-white"
+                              : hasEnvApiKey(provider.id)
+                                ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                                : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {provider.label}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
 
-              {worksheetMode === "multiple" && (
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <label htmlFor="gen-sentence-count" className="text-xs font-medium text-slate-700">
-                      Number of sentences
+                  <div>
+                    <label
+                      htmlFor={`ai-model-${aiProvider}`}
+                      className="mb-1 block text-xs font-medium text-slate-700"
+                    >
+                      {activeProviderMeta.label} model{" "}
+                      <span className="font-normal text-slate-500">(free)</span>
                     </label>
-                    <span className="text-xs tabular-nums text-slate-500">{genSentenceCount}</span>
+                    <select
+                      id={`ai-model-${aiProvider}`}
+                      value={modelByProvider[aiProvider]}
+                      onChange={(e) => selectModel(aiProvider, e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
+                    >
+                      {modelsForProvider(aiProvider).map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <input
-                    id="gen-sentence-count"
-                    type="range"
-                    min={1}
-                    max={MAX_SENTENCE_COUNT}
-                    value={genSentenceCount}
-                    onChange={(e) => setGenSentenceCount(Number(e.target.value))}
-                    className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-violet-600"
-                  />
-                  {genSentenceCount > 7 && (
-                    <p className="mt-1 text-xs text-amber-700">
+
+                  <fieldset>
+                    <legend className="mb-1.5 text-xs font-medium text-slate-700">Grade</legend>
+                    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Grade level">
+                      {([1, 2, 3] as const).map((grade) => (
+                        <button
+                          key={grade}
+                          type="button"
+                          onClick={() => setGenGrade(grade)}
+                          className={`rounded-lg border px-2 py-1.5 text-sm font-medium transition focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 ${
+                            genGrade === grade
+                              ? "border-violet-600 bg-violet-600 text-white"
+                              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {grade}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <div>
+                    <label htmlFor="gen-topics" className="mb-1 block text-xs font-medium text-slate-700">
+                      Topics <span className="font-normal text-slate-500">(optional)</span>
+                    </label>
+                    <textarea
+                      id="gen-topics"
+                      value={genTopicsText}
+                      onChange={(e) => {
+                        setGenTopicsText(e.target.value);
+                        setGenerateError(null);
+                      }}
+                      placeholder={
+                        isArabicMode
+                          ? "مثال:\nالشتاء\nالحيوانات"
+                          : "e.g.\nwinter\nfarm animals"
+                      }
+                      rows={4}
+                      className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
                       {isArabicMode
-                        ? "قد يبدو الورقة مزدحمًا عند الطباعة."
-                        : "The worksheet may feel crowded when printing."}
+                        ? "ضع كل موضوع في سطر، أو افصلها بفواصل. اترك الحقل فارغًا لموضوع عشوائي."
+                        : "Enter one topic per line, or separate them with commas. Leave it empty for a surprise theme."}
                     </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="gen-bold-target" className="mb-1 block text-xs font-medium text-slate-700">
+                      What to bold <span className="font-normal text-slate-500">(optional)</span>
+                    </label>
+                    <input
+                      id="gen-bold-target"
+                      type="text"
+                      value={genBoldTarget}
+                      onChange={(e) => {
+                        setGenBoldTarget(e.target.value);
+                        setGenerateError(null);
+                      }}
+                      placeholder={
+                        isArabicMode
+                          ? "مثل: كلمات بصرية، كلمات فيها حرف س"
+                          : "e.g. sight words, words with the letter sh"
+                      }
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      {isArabicMode
+                        ? "إذا تركته فارغًا، فلن يتم تغليظ أي كلمة."
+                        : "If left empty, nothing will be bold."}
+                    </p>
+                  </div>
+
+                  {worksheetMode === "multiple" && (
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <label htmlFor="gen-sentence-count" className="text-xs font-medium text-slate-700">
+                          Number of sentences
+                        </label>
+                        <span className="text-xs tabular-nums text-slate-500">{genSentenceCount}</span>
+                      </div>
+                      <input
+                        id="gen-sentence-count"
+                        type="range"
+                        min={1}
+                        max={MAX_SENTENCE_COUNT}
+                        value={genSentenceCount}
+                        onChange={(e) => setGenSentenceCount(Number(e.target.value))}
+                        className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-violet-600"
+                      />
+                      {genSentenceCount > 7 && (
+                        <p className="mt-1 text-xs text-amber-700">
+                          {isArabicMode
+                            ? "قد يبدو الورقة مزدحمًا عند الطباعة."
+                            : "The worksheet may feel crowded when printing."}
+                        </p>
+                      )}
+                    </div>
                   )}
+
+                  <div className="space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={handleGenerateSentences}
+                      disabled={generatingSentences || !aiApiKey.trim()}
+                      className="inline-flex w-full min-h-10 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-800 transition hover:border-violet-300 hover:bg-violet-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {generatingSentences
+                        ? "Generating…"
+                        : `Generate ${worksheetMode === "single" ? "1 sentence" : `${genSentenceCount} sentence${genSentenceCount === 1 ? "" : "s"}`} with ${activeProviderMeta.label}`}
+                    </button>
+                    {generateError && (
+                      <p className="text-xs text-rose-600" role="alert">
+                        {generateError}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
-
-              {!hasEnvKeyForProvider && (
-                <div>
-                  <label htmlFor="ai-api-key" className="mb-1 block text-xs font-medium text-slate-600">
-                    {activeProviderMeta.label} API key
-                  </label>
-                  <input
-                    id="ai-api-key"
-                    type="password"
-                    value={aiApiKey}
-                    onChange={(e) => {
-                      setAiApiKey(e.target.value);
-                      setGenerateError(null);
-                    }}
-                    onBlur={() => setApiKey(aiProvider, aiApiKey)}
-                    placeholder={activeProviderMeta.keyPlaceholder}
-                    autoComplete="off"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={handleGenerateSentences}
-                  disabled={generatingSentences || !aiApiKey.trim()}
-                  className="inline-flex w-full min-h-10 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-800 transition hover:border-violet-300 hover:bg-violet-100 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {generatingSentences
-                    ? "Generating…"
-                    : `Generate ${worksheetMode === "single" ? "1 sentence" : `${genSentenceCount} sentence${genSentenceCount === 1 ? "" : "s"}`} with ${activeProviderMeta.label}`}
-                </button>
-                {generateError && (
-                  <p className="text-xs text-rose-600" role="alert">
-                    {generateError}
-                  </p>
-                )}
-              </div>
-            </div>
+            </section>
 
             {worksheetMode === "multiple" ? (
               <fieldset>
