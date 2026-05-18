@@ -10,7 +10,9 @@ export type GenerationOptions = {
   language: "english" | "arabic";
   grade: GenerationGrade;
   sentenceCount: number;
+  model: string;
   topics?: string[];
+  boldTarget?: string;
 };
 
 export type AiProviderMeta = {

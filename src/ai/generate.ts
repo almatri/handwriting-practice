@@ -1,15 +1,6 @@
-import { GEMINI_MODEL, generateWithGemini } from "./providers/gemini";
-import { OPENROUTER_MODEL, generateWithOpenRouter } from "./providers/openrouter";
+import { generateWithGemini } from "./providers/gemini";
+import { generateWithOpenRouter } from "./providers/openrouter";
 import { AI_PROVIDERS, type AiProvider, type GenerationOptions } from "./types";
-
-function modelForProvider(provider: AiProvider): string {
-  switch (provider) {
-    case "gemini":
-      return GEMINI_MODEL;
-    case "openrouter":
-      return OPENROUTER_MODEL;
-  }
-}
 
 export async function generatePracticeSentences(
   provider: AiProvider,
@@ -17,8 +8,7 @@ export async function generatePracticeSentences(
   options: GenerationOptions,
 ): Promise<string[]> {
   const providerLabel = AI_PROVIDERS.find((p) => p.id === provider)?.label ?? provider;
-  const model = modelForProvider(provider);
-  console.log(`[AI] provider=${providerLabel} (${provider}) model=${model}`);
+  console.log(`[AI] provider=${providerLabel} (${provider}) model=${options.model}`);
 
   switch (provider) {
     case "gemini":

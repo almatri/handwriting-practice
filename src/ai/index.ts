@@ -9,4 +9,12 @@ export {
 } from "./types";
 export { parseTopicsInput } from "./prompt";
 export { apiKeyEnvHint, getApiKey, hasEnvApiKey, setApiKey } from "./keys";
+export {
+  fetchOpenRouterFreeModels,
+  freeModelsForProvider,
+  GEMINI_FREE_MODELS,
+  getStoredModel,
+  setStoredModel,
+  type FreeModelOption,
+} from "./models";
 export { generatePracticeSentences } from "./generate";

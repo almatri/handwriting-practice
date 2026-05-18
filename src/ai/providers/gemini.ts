@@ -2,18 +2,16 @@ import { buildPrompt, clampSentenceCount } from "../prompt";
 import { parseSentencesFromJson } from "../parseSentences";
 import type { GenerationOptions } from "../types";
 
-export const GEMINI_MODEL =
-  import.meta.env.VITE_GEMINI_MODEL?.trim() || "gemini-flash-latest";
-
 export async function generateWithGemini(
   apiKey: string,
   options: GenerationOptions,
 ): Promise<string[]> {
   const sentenceCount = clampSentenceCount(options.sentenceCount);
   const prompt = buildPrompt({ ...options, sentenceCount });
+  const model = options.model;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: "POST",
       headers: {

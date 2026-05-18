@@ -2,15 +2,13 @@ import { buildPrompt, clampSentenceCount } from "../prompt";
 import { parseSentencesFromJson } from "../parseSentences";
 import type { GenerationOptions } from "../types";
 
-export const OPENROUTER_MODEL =
-  import.meta.env.VITE_OPENROUTER_MODEL?.trim() || "google/gemini-2.0-flash-001";
-
 export async function generateWithOpenRouter(
   apiKey: string,
   options: GenerationOptions,
 ): Promise<string[]> {
   const sentenceCount = clampSentenceCount(options.sentenceCount);
   const prompt = buildPrompt({ ...options, sentenceCount });
+  const model = options.model;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -25,7 +23,7 @@ export async function generateWithOpenRouter(
     method: "POST",
     headers,
     body: JSON.stringify({
-      model: OPENROUTER_MODEL,
+      model,
       temperature: 1.2,
       response_format: { type: "json_object" },
       messages: [

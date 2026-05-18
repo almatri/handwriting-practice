@@ -69,7 +69,7 @@ function gradeRules(grade: GenerationGrade): string {
 
 export function parseTopicsInput(text: string): string[] {
   return text
-    .split(",")
+    .split(/[\n,]+/)
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
 }
@@ -89,6 +89,10 @@ export function buildPrompt(options: GenerationOptions): string {
     topics.length > 0
       ? `Topics for this worksheet: ${topics.join(", ")}. Every sentence must relate to these topics. If there are multiple topics, spread them across sentences.`
       : `Theme for this worksheet: "${pickRandom(SURPRISE_THEMES)}". Build all sentences around this theme. Avoid overused clichés (happy puppy, yellow ball, zoo trip) unless they truly fit the theme.`;
+  const boldTarget = options.boldTarget?.trim();
+  const boldInstruction = boldTarget
+    ? `Bold only words or parts of words that match this teaching focus: ${boldTarget}. Use **double asterisks** only for matching targets. If a sentence does not naturally fit the target, leave that sentence unbolded.`
+    : "Do not bold any words. Do not use **double asterisks** anywhere.";
 
   return `You write handwriting practice sentences for elementary school (grades 1–3).
 
@@ -105,7 +109,7 @@ ${categoryList}
 
 Rules:
 - Each sentence uses a different main subject (no repeated animals, colors, or settings).
-- Bold exactly one important word with **double asterisks**.
+- ${boldInstruction}
 - No quotation marks, semicolons, or dialogue.
 - End each sentence with a period (.), except questions which end with ? (or ؟ in Arabic).
 - Keep vocabulary appropriate for the target grade.
